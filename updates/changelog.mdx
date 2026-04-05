@@ -1,0 +1,78 @@
+---
+title: "Changelog"
+description: "A history of every Openly release, from the initial launch to the latest version."
+---
+
+All notable changes to Openly are listed here, newest first.
+
+<AccordionGroup>
+  <Accordion title="Version 1.7.0 — September 18, 2025">
+    ### Features
+
+    - **Color picker for theme customization** — choose a custom accent color for the app from the **Settings** screen. The color is applied immediately across the entire UI.
+    - **Version info in Settings** — your current version and build number are now visible at the bottom of the **Settings** screen.
+    - **Improved logout** — the logout flow was updated alongside the settings screen changes for a cleaner experience.
+  </Accordion>
+
+  <Accordion title="Version 1.6.0 — September 16, 2025">
+    ### Features
+
+    - **Changelog display in the update sheet** — when a new version is available, the release notes from GitHub appear in a scrollable **What's new** section inside the update bottom sheet.
+    - **Download progress dialog** — a dialog now tracks OTA download progress in real time, showing a progress bar, percentage, and bytes downloaded out of the total file size. A **Background** button lets the download continue while you use the rest of the app.
+  </Accordion>
+
+  <Accordion title="Version 1.5.0 — September 5, 2025">
+    ### Features
+
+    - **Pull-to-refresh on the door list** — swipe down on the door list to refresh it. An expressive animated loading indicator plays while the list reloads.
+  </Accordion>
+
+  <Accordion title="Version 1.4.1 — August 12, 2025">
+    ### Bug fixes
+
+    - **Fixed update loop bug** — the app now uses the build number embedded in the APK filename (e.g. `v1.4.1+8.apk`) as the primary signal for whether a release is newer. Previously, relying on the version name alone caused the update prompt to reappear after a successful install.
+  </Accordion>
+
+  <Accordion title="Version 1.4.0 — August 6, 2025">
+    ### Features
+
+    - **Animated splash screen** — the app now opens with a fingerprint scan animation followed by an unlock sequence before entering the main screen.
+  </Accordion>
+
+  <Accordion title="Version 1.3.0 — August 5, 2025">
+    ### Features
+
+    - **Settings screen redesign** — the previous profile screen has been replaced by a dedicated **Settings** screen with a cleaner layout and room for new options.
+  </Accordion>
+
+  <Accordion title="Version 1.2.0 — August 5, 2025">
+    ### Features
+
+    - **Manual update check button** — a **Check for Updates** button was added to the profile screen (later moved to **Settings** in v1.3.0). Tapping it triggers an on-demand update check and shows a feedback dialog if the app is already up to date.
+  </Accordion>
+
+  <Accordion title="Version 1.1.1 — August 5, 2025">
+    ### Bug fixes
+
+    - **Android release build fix** — disabled `minify` and `shrinkResources` in the Android release configuration to resolve a crash that prevented the app from launching after a production build.
+  </Accordion>
+
+  <Accordion title="Version 1.1.0 — August 4, 2025">
+    ### Features
+
+    - **In-app OTA updates via GitHub Releases** — Openly can now check for, download, and install its own updates directly from GitHub Releases without going through the Play Store. The app checks automatically at startup and prompts you when a new version is available.
+  </Accordion>
+
+  <Accordion title="Version 1.0.0 — August 4, 2025">
+    ### Initial release
+
+    The first stable release of Openly, a Flutter-based smart door access control app. This release includes:
+
+    - **Authentication** — login with credential support, token expiry handling, and local biometric authentication.
+    - **Responsive navigation** — adaptive layout using `NavigationRail` for tablet and desktop form factors.
+    - **Timed door unlock** — tap to unlock a door for a configurable duration, with feedback animations confirming the action.
+    - **Material 3 design** — full Material 3 expressive design language throughout the app.
+    - **User profile and settings** — view account details and manage app preferences.
+    - **Robust error handling** — clear error messages and graceful recovery for network failures and token expiry.
+  </Accordion>
+</AccordionGroup>

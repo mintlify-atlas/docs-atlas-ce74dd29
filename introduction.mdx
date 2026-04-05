@@ -1,0 +1,36 @@
+---
+title: "Introduction"
+description: "Openly is a Flutter-based smart door access control app for modern offices. Securely browse, unlock, and manage doors from your phone."
+---
+
+Openly gives you instant, secure access to the doors in your building — right from your Android device. Built with Flutter and Material 3, it connects to your building's door access API and lets you unlock doors with a single tap, save favorites, search by name, and stay up to date automatically.
+
+The app's primary color is `#4b5c92`, customizable through the in-app color picker in **Settings**.
+
+## Key features
+
+- **Token-based authentication** — Log in with your email and password. Sessions persist across restarts; you are redirected to the login screen when your token expires.
+- **Biometric login** — Authenticate with your fingerprint after your first password login, using `local_auth`.
+- **Door control** — Unlock any door via pulse or timed unlock (default: 5 seconds). Animated feedback confirms every action.
+- **Favorites tab** — Save your most-used doors for quick access in a dedicated tab.
+- **Search and filter** — Instantly filter the full door list by name or floor.
+- **Material 3 design** — Light and dark theme support with a seed-color-based palette you can customize.
+- **OTA updates** — Openly checks for new releases on GitHub and installs updates in-app, with a changelog dialog before each update.
+- **User profile and settings** — Manage your session, change your theme seed color, and view version info from **Settings**.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Download the APK or build from source and unlock your first door in minutes.
+  </Card>
+  <Card title="Authentication" icon="lock" href="/features/authentication">
+    Token-based login, biometric authentication, and session management.
+  </Card>
+  <Card title="Door control" icon="door-open" href="/features/door-control">
+    Browse doors by floor, trigger unlocks, and understand unlock modes.
+  </Card>
+  <Card title="Settings and theming" icon="palette" href="/features/settings-and-theming">
+    Customize your theme color, toggle dark mode, and manage your account.
+  </Card>
+</CardGroup>

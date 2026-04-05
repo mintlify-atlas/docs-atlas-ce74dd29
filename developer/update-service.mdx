@@ -1,0 +1,189 @@
+---
+title: "Update Service"
+description: "Reference for UpdateService — checks GitHub for new APK releases and manages the in-app download and installation flow."
+---
+
+`UpdateService` is a static service class that checks the Openly GitHub repository for new releases, compares version and build numbers against the currently installed app, and drives the full update UI — including a changelog bottom sheet, download progress dialog, and APK installer handoff.
+
+All methods are `static` — you never instantiate `UpdateService`.
+
+---
+
+## Methods
+
+### `UpdateService.checkForUpdates()`
+
+Checks the GitHub Releases API for a newer version of the app and, if one is found, presents the update bottom sheet.
+
+```dart
+static Future<void> checkForUpdates(
+  BuildContext context, {
+  bool showNoUpdateDialog = false,
+})
+```
+
+**Parameters**
+
+<ParamField path="context" type="BuildContext" required>
+  The Flutter `BuildContext` used to show dialogs and bottom sheets. Pass the context from the widget that initiates the check (e.g., your home screen's `State`).
+</ParamField>
+
+<ParamField path="showNoUpdateDialog" type="bool" default="false">
+  When `true`, displays an "App is Up to Date" dialog if no newer version is found. Leave this as `false` for automatic background checks (e.g., on app launch) so the user is not interrupted. Set it to `true` for manual checks triggered from the Settings screen.
+</ParamField>
+
+<Note>
+  Set `showNoUpdateDialog: true` when the user explicitly taps a "Check for Updates" button in your Settings screen. This gives them confirmation that the app is current. Leave it `false` for the silent startup check so users aren't interrupted when no update is available.
+</Note>
+
+**How it works**
+
+The method performs the following steps on each call:
+
+1. Reads the current app version and build number using `PackageInfo.fromPlatform()`.
+2. Fetches `https://api.github.com/repos/nathan101000/openly/releases/latest` with an `Accept: application/vnd.github+json` header.
+3. Finds the APK asset in the release. The asset must have a `.apk` extension and contain `+` in its filename (indicating the build number is embedded).
+4. Parses the build number from the APK filename using the pattern `v{version}+{buildNumber}.apk` (e.g., `v1.2.3+45.apk` → build number `45`).
+5. Compares versions using the logic described below.
+6. If an update is available, shows the update bottom sheet.
+7. If no update is available and `showNoUpdateDialog` is `true`, shows the "App is Up to Date" dialog.
+
+**Version comparison logic**
+
+The comparison prioritises build number over semantic version:
+
+1. If the latest release has a valid build number (`> 0`), it is compared directly with the current build number.
+   - Latest build number **greater than** current → update available.
+   - Latest build number **less than** current → no update.
+   - Build numbers **equal** → fall through to semantic version comparison.
+2. If build numbers are equal or unavailable, the semantic version strings (`major.minor.patch`) are compared component by component.
+
+**Error handling**
+
+If the GitHub API returns a non-`200` response or any exception occurs during the check, the method logs the error and returns silently. No error dialog is shown for failed update checks.
+
+---
+
+## Update UI flow
+
+When an update is available, `UpdateService` presents a sequence of UI components to guide the user through the download and installation.
+
+<Steps>
+  <Step title="Update bottom sheet">
+    A modal bottom sheet appears showing:
+    - The new version number (e.g., `Version 1.2.3 is ready to install.`)
+    - A "What's new" section with the GitHub release body rendered as Markdown (scrollable, up to 220 px height)
+    - An advisory notice to ensure a stable connection and sufficient storage
+    - Two buttons: **Later** (dismisses the sheet) and **Update Now** (proceeds to install)
+  </Step>
+
+  <Step title="Install permission check">
+    Before the download starts, `UpdateService` checks the `REQUEST_INSTALL_PACKAGES` permission.
+
+    - If already granted, the download begins immediately.
+    - If not granted, an `AlertDialog` explains why the permission is needed and offers **Not Now** or **Continue**.
+    - If the user taps **Continue**, the system permission request is shown.
+    - If permanently denied, a second dialog offers **Open Settings** to direct the user to the app's permission settings page.
+    - If the user does not grant the permission, the update flow is aborted.
+  </Step>
+
+  <Step title="Download progress dialog">
+    A non-dismissible `AlertDialog` ("Updating App") shows:
+    - A status label (e.g., `Downloading update (42%)`)
+    - A `LinearProgressIndicator` — indeterminate until the first progress event, then filled proportionally
+    - A file size line when total size is known (e.g., `12.3 MB of 45.6 MB downloaded`)
+    - A **Background** button that closes the dialog but lets the download continue
+    - A **Cancel** button that cancels both the OTA stream and the download
+
+    Both **Background** and **Cancel** are disabled while the installer is launching.
+  </Step>
+
+  <Step title="Installer handoff">
+    When the download completes, `OtaUpdate` transitions to `OtaStatus.INSTALLING`. The progress dialog closes automatically (if it has not been sent to the background) and the Android package installer takes over.
+  </Step>
+</Steps>
+
+---
+
+## Error states
+
+Errors during the download are reported by `OtaUpdate` via `OtaStatus` values. The progress dialog closes and a "Update Problem" error dialog is shown with an optional **Retry** button.
+
+| OtaStatus | Behaviour |
+|---|---|
+| `PERMISSION_NOT_GRANTED_ERROR` | Shows error dialog without a Retry button. |
+| `DOWNLOAD_ERROR` | Shows error dialog with a Retry button. |
+| `INTERNAL_ERROR` | Shows error dialog with a Retry button. |
+| `CHECKSUM_ERROR` | Shows error dialog with a Retry button. |
+| `ALREADY_RUNNING_ERROR` | Shows error dialog with a Retry button. |
+
+<Warning>
+  If the user taps **Background** and then the download encounters an error, the error dialog is still shown but the progress dialog will not be visible. Ensure your error dialog is rooted at a context that remains in the widget tree while background downloads are active.
+</Warning>
+
+---
+
+## APK naming convention
+
+The GitHub release asset must follow this naming pattern for the build number to be parsed correctly:
+
+```
+v{version}+{buildNumber}.apk
+```
+
+Examples:
+
+| Filename | Parsed version | Parsed build number |
+|---|---|---|
+| `v1.2.3+45.apk` | `1.2.3` | `45` |
+| `openly-v2.0.0+100.apk` | `2.0.0` | `100` |
+
+Assets without a `+` in their name are skipped. If no matching APK asset is found, the update check exits silently.
+
+---
+
+## Usage example
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:openly/services/update_service.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Silent check on startup — no dialog if already up to date
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.checkForUpdates(context);
+    });
+  }
+
+  Future<void> _onCheckForUpdatesTapped() async {
+    // Manual check from Settings — show confirmation if up to date
+    await UpdateService.checkForUpdates(
+      context,
+      showNoUpdateDialog: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Openly')),
+      body: Center(
+        child: TextButton(
+          onPressed: _onCheckForUpdatesTapped,
+          child: const Text('Check for Updates'),
+        ),
+      ),
+    );
+  }
+}
+```

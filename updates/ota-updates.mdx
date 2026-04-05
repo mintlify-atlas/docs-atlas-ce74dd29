@@ -1,0 +1,100 @@
+---
+title: "Over-the-Air Updates"
+description: "How Openly checks for and installs updates directly from GitHub Releases, without going through the Play Store."
+---
+
+Openly delivers updates over-the-air (OTA) by downloading the latest APK directly from [GitHub Releases](https://github.com/nathan101000/openly/releases) and launching the Android installer. Because the app installs outside the Play Store, you control exactly when updates happen.
+
+<Warning>
+  Openly installs updates by sideloading an APK — directly from GitHub, not the
+  Play Store. Your device must allow installation from unknown sources for this
+  to work. The app will guide you through granting that permission.
+</Warning>
+
+## How updates are checked
+
+The app checks for updates in two ways:
+
+- **Automatically at startup** — every time the app launches and you are logged in, it queries the GitHub Releases API and compares the latest release build number against the one installed on your device.
+- **Manually via Settings** — open **Settings** and tap **Check for Updates** to trigger a check on demand. If you are already on the latest version, a confirmation dialog tells you so.
+
+Version comparison uses the build number embedded in the APK filename (e.g. `v1.7.0+10.apk`). The build number takes priority; semantic version is used as a fallback if the build number cannot be parsed.
+
+## Update flow
+
+<Steps>
+  <Step title="Update sheet appears">
+    When a newer build is found, a bottom sheet slides up showing the new version
+    number and the release changelog under **What's new**. You can scroll through
+    the changelog before deciding.
+  </Step>
+  <Step title="Choose to update or defer">
+    Tap **Update Now** to proceed or **Later** to dismiss the sheet. Choosing
+    **Later** does not suppress future checks — the sheet will appear again the
+    next time the app starts and the update is still available.
+  </Step>
+  <Step title="Grant install permission">
+    If Openly does not yet have the **Install unknown apps** permission, a dialog
+    explains why it is needed and asks you to confirm. Tap **Continue** and the
+    system permission request appears. See [Permission handling](#permission-handling)
+    below if the permission was previously denied.
+  </Step>
+  <Step title="Download progress dialog">
+    A dialog tracks the download in real time, showing a progress bar, the
+    percentage complete, and the amount downloaded out of the total file size
+    (e.g. `3.2 MB of 18.4 MB downloaded`).
+
+    Two buttons are available while downloading:
+
+    - **Background** — dismisses the dialog and lets the download continue while
+      you use the rest of the app. The installer launches automatically when the
+      download finishes.
+    - **Cancel** — stops the download and closes the dialog.
+  </Step>
+  <Step title="Android installer launches">
+    When the download completes, the progress dialog closes and the standard
+    Android package installer opens. Follow the on-screen prompts to finish
+    installing the update. The app restarts automatically after installation.
+  </Step>
+</Steps>
+
+<Note>
+  Make sure you have a stable internet connection and enough free storage before
+  starting an update. A poor connection or insufficient space will cause the
+  download to fail.
+</Note>
+
+## Permission handling
+
+The **Install unknown apps** permission is required to install the downloaded APK. Openly requests it as part of the update flow, so you will only be prompted when you actually choose to update.
+
+| Scenario | What happens |
+|---|---|
+| Permission not yet granted | A dialog explains the need and shows a **Continue** button. The system permission prompt follows immediately. |
+| Permission granted | The download starts without interruption. |
+| Permission permanently denied | A dialog offers an **Open Settings** button. Tap it, find **Install unknown apps**, select **Openly**, and enable it. Return to the app and start the update again. |
+
+## APK naming convention
+
+Each release asset follows the pattern:
+
+```
+v{version}+{buildNumber}.apk
+```
+
+For example: `v1.7.0+10.apk`
+
+The build number (`10` in this example) is what the app uses to determine whether a release is newer than the installed version. The `+` character in the filename is required — releases without it are ignored.
+
+## Error states
+
+| Error | What you see | What to do |
+|---|---|---|
+| Download fails | "Update Problem" dialog with a **Retry** option | Check your internet connection and tap **Retry** |
+| Permission not granted after prompt | "Update Problem" dialog (no retry) | Re-open the update sheet and grant permission when prompted |
+| Update already running | "Update Problem" dialog | Wait a moment, then try again |
+| GitHub API unreachable | No dialog — the check fails silently at startup | Trigger a manual check from **Settings** once your connection is restored |
+
+## Manual check in Settings
+
+Open **Settings** and tap **Check for Updates**. This calls the same check as the startup check, but with the "no update" dialog enabled — if you are already on the latest version, the app confirms it with a dialog showing your current version and build number.

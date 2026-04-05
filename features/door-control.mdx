@@ -1,0 +1,74 @@
+---
+title: "Door Control"
+description: "Browse every door in your building, filter by floor, and unlock doors with a single tap."
+---
+
+## The door list
+
+The **Doors** tab shows every door you have access to, organized by floor. Each floor has its own labeled section header. Scroll down to browse all available doors across the building.
+
+At the top of the screen, a persistent **Search** bar lets you filter doors by name as you type. Below the search bar, a row of filter chips lets you narrow the list to a specific floor — tap **All** to show every door again.
+
+### Door types
+
+Every door in the list belongs to one of the following categories:
+
+| Type | Examples |
+|---|---|
+| Suite | Office suites identified by room number (e.g., Suite 604) |
+| Men's washroom | Men's restrooms on a given floor |
+| Women's washroom | Women's restrooms on a given floor |
+| Staircase | Stairwell access doors |
+| Conference | Conference room doors |
+| Floor door | Other floor-level doors not in the categories above |
+| Building-level | Lobby, café, main entrance, parking, and other common areas not tied to a specific floor |
+
+### Building-level vs. floor-specific doors
+
+Doors that belong to a specific floor (suites, washrooms, stairwells, conference rooms) appear under their floor heading. Doors that serve the whole building — such as the lobby, café, or main entrance — are grouped under **Main Building** at the top of the list.
+
+---
+
+## Unlocking a door
+
+Each door card shows an **Unlock** button. There are two ways to use it:
+
+### Pulse unlock (tap)
+
+<Steps>
+  <Step title="Find the door">
+    Scroll through the door list or use the search bar to locate the door you want to unlock. You can also use the floor filter chips to narrow the list.
+  </Step>
+  <Step title="Tap Unlock">
+    Tap the **Unlock** button on the door card. Openly immediately sends a pulse unlock signal to the door controller — no confirmation dialog.
+  </Step>
+  <Step title="Confirmation">
+    On success, a 5-second countdown snackbar appears at the bottom of the screen (e.g., "Unlocked Suite 604"). The door releases briefly and re-locks automatically.
+  </Step>
+</Steps>
+
+### Timed unlock (long press)
+
+For situations where you need a door to stay open for a set period — such as during a move or a delivery — long-press the **Unlock** button to open the **Unlock Mode** sheet.
+
+<Steps>
+  <Step title="Long-press Unlock">
+    Long-press the **Unlock** button on any door card. A bottom sheet appears with two options: **Pulse (5s)** and **Timed**.
+  </Step>
+  <Step title="Choose Timed">
+    Tap **Timed** to reveal a duration slider. Drag the slider to select between 1 and 60 minutes, then tap **Timed** again to confirm.
+  </Step>
+  <Step title="Door stays open">
+    The app sends the unlock command with your chosen duration. A snackbar confirms how long the door will stay open (e.g., "Unlocked Main Entrance for 5 min"). The door re-locks automatically after the time elapses.
+  </Step>
+</Steps>
+
+<Tip>
+  Add frequently used doors to your **Favorites** for one-tap access without searching. See [Favorites & Search](/features/favorites-and-search) for details.
+</Tip>
+
+---
+
+## Refreshing the door list
+
+If a door is missing or the list looks out of date, pull down from the top of the screen to refresh. Openly will re-fetch the full door list from the server and display a confirmation when the update is complete.

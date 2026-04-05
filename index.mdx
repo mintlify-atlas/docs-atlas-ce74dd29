@@ -1,97 +1,64 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to Openly"
+description: "Secure, smart door access control for modern offices — right from your phone."
 ---
 
-## Setting up
+Openly is a Flutter-based mobile app that gives you instant, secure access to the doors in your building. Log in once, unlock doors with a tap, save your favorites, and stay up to date automatically — all from a clean Material 3 interface.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get the app running on your device in minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Installation" icon="mobile" href="/installation">
+    Build requirements, dependencies, and setup steps
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Door Control" icon="door-open" href="/features/door-control">
+    Learn how to browse, unlock, and manage doors
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Authentication" icon="lock" href="/features/authentication">
+    Token-based login, biometrics, and session management
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What Openly does
 
-Everything you need to create world-class documentation.
+Openly connects to your building's door access API and lets you:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+- **Browse doors** organized by floor, with smart categorization for suites, washrooms, staircases, and conference rooms
+- **Unlock doors** with a single tap — choose a timed unlock (minutes) or a pulse
+- **Save favorites** for the doors you use most, surfaced in a dedicated tab
+- **Search and filter** the full door list instantly
+- **Authenticate securely** using your username and password, with optional biometric (fingerprint) login
+- **Update automatically** via over-the-air updates delivered through GitHub Releases
 
-## Need inspiration?
+<Steps>
+  <Step title="Install the app">
+    Download the latest APK from [GitHub Releases](https://github.com/nathan101000/openly/releases) or build from source using `flutter build apk`.
+  </Step>
+  <Step title="Log in">
+    Enter your building access credentials (email and password). Openly stores your session securely and prompts you to re-authenticate only when your token expires.
+  </Step>
+  <Step title="Find your door">
+    Browse the door list by floor, use the search bar to filter by name, or jump to your saved favorites.
+  </Step>
+  <Step title="Unlock">
+    Tap a door card and confirm the unlock. The door opens for the configured duration (default: 5 seconds). You'll see a confirmation animation when the unlock succeeds.
+  </Step>
+</Steps>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+## Explore the docs
+
+<CardGroup cols={2}>
+  <Card title="Core Features" icon="star" href="/features/authentication">
+    Authentication, door control, favorites, search, and theming
+  </Card>
+  <Card title="OTA Updates" icon="arrow-up-circle" href="/updates/ota-updates">
+    How Openly delivers and installs updates automatically
+  </Card>
+  <Card title="Developer Guide" icon="code" href="/developer/project-structure">
+    Architecture, services, state management, and data models
+  </Card>
+  <Card title="Building & Releasing" icon="hammer" href="/developer/building">
+    Build commands, release workflow, and CI/CD setup
+  </Card>
+</CardGroup>

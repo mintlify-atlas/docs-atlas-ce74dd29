@@ -1,0 +1,155 @@
+---
+title: "Building the App"
+description: "Set up your environment and build Openly for development and release."
+---
+
+<Warning>
+  Openly sets `publish_to: "none"` in `pubspec.yaml`. It is not published to
+  pub.dev and cannot be installed as a package. Distribution is handled
+  exclusively through GitHub Releases and the built-in OTA update system.
+</Warning>
+
+## Prerequisites
+
+Before building, make sure you have the following installed:
+
+<CardGroup cols={3}>
+  <Card title="Flutter SDK" icon="mobile">
+    Version **3.0.0 or later** (`sdk: ">=3.0.0 <4.0.0"`). Install via the
+    [official Flutter docs](https://docs.flutter.dev/get-started/install).
+  </Card>
+  <Card title="Android SDK" icon="android">
+    Required for Android builds. Install through Android Studio or the
+    standalone SDK tools. API level is managed by Flutter's Gradle plugin.
+  </Card>
+  <Card title="Java / Kotlin toolchain" icon="coffee">
+    The Android build targets **Java 11** (`JavaVersion.VERSION_11`). JDK 11+
+    is required; JDK 17 or 21 is recommended.
+  </Card>
+</CardGroup>
+
+## Development workflow
+
+<Steps>
+  <Step title="Install dependencies">
+    Fetch all Flutter packages declared in `pubspec.yaml`:
+
+    ```bash
+    flutter pub get
+    ```
+  </Step>
+
+  <Step title="Connect a device or start an emulator">
+    List available targets to confirm Flutter can see your device:
+
+    ```bash
+    flutter devices
+    ```
+  </Step>
+
+  <Step title="Run the app">
+    Launch on the connected device in hot-reload mode:
+
+    ```bash
+    flutter run
+    ```
+
+    To attach the Dart debugger and enable breakpoints, use:
+
+    ```bash
+    flutter run --debug
+    ```
+  </Step>
+</Steps>
+
+## Release builds
+
+<Steps>
+  <Step title="Build a debug-signed APK (quick test)">
+    Produces an unsigned/debug-signed APK suitable for local testing:
+
+    ```bash
+    flutter build apk
+    ```
+
+    Output: `build/app/outputs/flutter-apk/app-release.apk`
+  </Step>
+
+  <Step title="Build a release APK">
+    Produces a fully optimized APK. Requires a keystore configured in
+    `android/key.properties` (see [CI/CD](/developer/ci-cd) for the CI
+    signing setup):
+
+    ```bash
+    flutter build apk --release
+    ```
+  </Step>
+
+  <Step title="Build an Android App Bundle for the Play Store">
+    Produces an `.aab` file for Google Play distribution:
+
+    ```bash
+    flutter build appbundle
+    ```
+  </Step>
+</Steps>
+
+### APK naming convention
+
+Release APKs are renamed by CI after the build step to embed the version and
+build number:
+
+```
+openly-v{semver}+{buildNumber}.apk
+
+# Example
+openly-v1.7.0+10.apk
+```
+
+The `+{buildNumber}` segment is required. The OTA update service
+(`UpdateService.checkForUpdates()`) parses this pattern from the GitHub
+Releases asset list to determine whether a newer build is available. An APK
+without this format will not be detected as an update.
+
+## Version management
+
+Version strings live in `pubspec.yaml` and follow Flutter's `name+buildNumber`
+convention:
+
+```yaml
+version: 1.7.0+10
+#        ↑       ↑
+#        semver  build number (used for OTA comparison)
+```
+
+- The **semver** part (`1.7.0`) drives semantic-release and the human-readable
+  release tag.
+- The **build number** (`10`) is sourced from `GITHUB_RUN_NUMBER` at build
+  time via `semantic-release-pub` and is the primary signal used by the OTA
+  service to detect updates.
+
+<Note>
+  You do not need to manually increment the build number in `pubspec.yaml`.
+  The `semantic-release-pub` plugin writes the correct value from
+  `GITHUB_RUN_NUMBER` during the CI release step.
+</Note>
+
+## Dependencies
+
+All runtime and development dependencies are declared in `pubspec.yaml`:
+
+| Package | Version | Purpose |
+|---|---|---|
+| `google_fonts` | `^6.2.1` | Custom typefaces via Google Fonts |
+| `http` | `^1.1.0` | HTTP client for API calls to the door control backend |
+| `provider` | `^6.1.1` | State management (ChangeNotifier pattern) |
+| `shared_preferences` | `^2.2.0` | Persistent key-value storage for tokens and settings |
+| `local_auth` | `^2.1.7` | Biometric authentication (fingerprint / face ID) |
+| `ota_update` | `^7.0.2` | Downloads and installs APKs over-the-air |
+| `package_info_plus` | `^8.3.0` | Reads the app's version and build number at runtime |
+| `permission_handler` | `^12.0.1` | Requests Android runtime permissions |
+| `expressive_loading_indicator` | `^0.0.1` | Animated loading indicator used in pull-to-refresh |
+| `flex_color_picker` | `^3.7.1` | Color picker widget for theme customization in settings |
+| `pull_to_refresh` | `^2.0.0` | Pull-to-refresh gesture on the door list |
+| `flutter_markdown` | `^0.7.3` | Renders Markdown in the changelog dialog during updates |
+| `flutter_lints` | `^5.0.0` | Enforces Flutter's recommended lint rules |

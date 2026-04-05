@@ -1,0 +1,242 @@
+---
+title: "Door Service"
+description: "Reference for DoorService — fetches the accessible door list and sends unlock commands via the Openly API."
+---
+
+`DoorService` is a static service class that communicates with the Openly door control API. It provides two operations: retrieving the list of doors a tenant can access, and sending an unlock command for a specific door.
+
+All methods are `static` — you never instantiate `DoorService`.
+
+---
+
+## Methods
+
+### `DoorService.fetchDoors()`
+
+Fetches the full list of accessible doors for a tenant and returns them as a parsed `Building` model.
+
+```dart
+static Future<Building> fetchDoors(int tenantId, String token)
+```
+
+**Endpoint**
+
+```
+GET https://doors.thespencertower.com/api/api/tenants/{tenantId}/unlocklist
+```
+
+The tenant ID is interpolated directly into the URL path. The request includes a `Bearer` token in the `Authorization` header.
+
+**Parameters**
+
+<ParamField path="tenantId" type="int" required>
+  The numeric tenant identifier. Obtain this from `AuthData.tenantId` after a successful login.
+</ParamField>
+
+<ParamField path="token" type="String" required>
+  The OAuth 2.0 bearer access token. Obtain this from `AuthData.accessToken` after a successful login.
+</ParamField>
+
+**Returns**
+
+A `Future<Building>` resolved by parsing the JSON response through `parseBuildingFromJson()`.
+
+**Throws**
+
+<AccordionGroup>
+  <Accordion title="fetch_doors_failed">
+    The server returned a non-`200` status code and the response body is valid JSON containing a `message` or `error` field.
+  </Accordion>
+  <Accordion title="invalid_response">
+    The server returned a non-`200` status code and the response body could not be decoded as JSON.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+### `DoorService.unlockDoor()`
+
+Sends an unlock command for a specific door.
+
+```dart
+static Future<void> unlockDoor(
+  int doorId,
+  int tenantId,
+  String token,
+  int minutes,
+)
+```
+
+**Endpoint**
+
+```
+POST https://doors.thespencertower.com/api/api/tenants/{tenantId}/unlock
+```
+
+The request body is JSON-encoded:
+
+```json
+{
+  "doorId": 42,
+  "floorId": null,
+  "minutes": 0
+}
+```
+
+The `floorId` field is always sent as `null`.
+
+**Parameters**
+
+<ParamField path="doorId" type="int" required>
+  The unique identifier of the door to unlock. Obtain this from `Door.id` on any door in the `Building` returned by `fetchDoors()`.
+</ParamField>
+
+<ParamField path="tenantId" type="int" required>
+  The numeric tenant identifier from `AuthData.tenantId`.
+</ParamField>
+
+<ParamField path="token" type="String" required>
+  The OAuth 2.0 bearer access token from `AuthData.accessToken`.
+</ParamField>
+
+<ParamField path="minutes" type="int" required>
+  Duration for the unlock.
+</ParamField>
+
+<Note>
+  Pass `minutes: 0` for a pulse unlock — the door will momentarily release and re-lock automatically. Pass a positive integer (e.g., `minutes: 5`) for a timed unlock where the door stays open for that many minutes.
+</Note>
+
+**Returns**
+
+`Future<void>`. The method completes without a return value on a `200` response.
+
+**Throws**
+
+<AccordionGroup>
+  <Accordion title="unlock_failed">
+    The server returned a non-`200` status code and the response body is valid JSON containing a `message` or `error` field.
+  </Accordion>
+  <Accordion title="invalid_response">
+    The server returned a non-`200` status code and the response body could not be decoded as JSON.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Response structure
+
+`fetchDoors()` returns a `Building` object parsed from the API JSON. The structure organises doors by floor, with building-level doors collected separately.
+
+<ResponseField name="Building" type="object">
+  Top-level container for all door and floor data.
+
+  <Expandable title="properties">
+    <ResponseField name="floors" type="Map<int, Floor>">
+      A map from floor number (e.g., `6`, `7`, `8`) to a `Floor` object. Floors are keyed by their inferred integer floor number.
+
+      <Expandable title="Floor properties">
+        <ResponseField name="number" type="int">
+          The floor number (e.g., `6`).
+        </ResponseField>
+        <ResponseField name="displayName" type="String">
+          The human-readable floor label as returned by the API (e.g., `"6th Fl"`).
+        </ResponseField>
+        <ResponseField name="elevatorIdsByName" type="Map<String, int>">
+          A map of elevator names to their door IDs (e.g., `{"Elevator A": 2, "Elevator B": 1}`). Use these IDs with `unlockDoor()` to call an elevator to a specific floor.
+        </ResponseField>
+        <ResponseField name="doors" type="List<Door>">
+          The list of doors assigned to this floor.
+
+          <Expandable title="Door properties">
+            <ResponseField name="id" type="int">
+              The unique door identifier. Pass this to `unlockDoor()`.
+            </ResponseField>
+            <ResponseField name="name" type="String">
+              The door's display name as returned by the API (e.g., `"Suite 604 Left"`).
+            </ResponseField>
+            <ResponseField name="type" type="DoorType">
+              Classified door type. One of: `suite`, `washroomMen`, `washroomWomen`, `staircase`, `conference`, `genericFloorDoor`, `other`.
+            </ResponseField>
+            <ResponseField name="inferredFloor" type="int?">
+              The floor number inferred from the door name. `null` for building-level doors.
+            </ResponseField>
+            <ResponseField name="side" type="String?">
+              `"Left"` or `"Right"` if present in the door name, otherwise `null`.
+            </ResponseField>
+            <ResponseField name="floors" type="List<int>">
+              A list containing the floor number this door belongs to, or `[-1]` for building-level (unassigned) doors.
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="unassignedDoors" type="List<Door>">
+      Doors that could not be assigned to a specific floor — typically building-level access points such as the lobby, café, main entrance, or parking. These doors have `inferredFloor: null` and `floors: [-1]`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Usage example
+
+```dart
+import 'package:openly/services/auth_service.dart';
+import 'package:openly/services/door_service.dart';
+import 'package:openly/models/api_exception.dart';
+
+Future<void> loadAndUnlockDoors() async {
+  // Restore or obtain an authenticated session
+  final auth = await AuthService.loadStoredAuth();
+  if (auth == null) {
+    // Redirect to login
+    return;
+  }
+
+  try {
+    // Fetch the accessible door list
+    final building = await DoorService.fetchDoors(auth.tenantId, auth.accessToken);
+
+    // Iterate floor-assigned doors
+    for (final entry in building.floors.entries) {
+      final floor = entry.value;
+      print('Floor ${floor.displayName}:');
+      for (final door in floor.doors) {
+        print('  [${door.type.name}] ${door.name} (id: ${door.id})');
+      }
+    }
+
+    // Iterate building-level doors (lobby, cafe, etc.)
+    print('Building-level doors:');
+    for (final door in building.unassignedDoors) {
+      print('  ${door.name} (id: ${door.id})');
+    }
+
+    // Pulse-unlock a specific door (0 minutes = momentary release)
+    final lobbyDoor = building.unassignedDoors.first;
+    await DoorService.unlockDoor(
+      lobbyDoor.id,
+      auth.tenantId,
+      auth.accessToken,
+      0, // pulse unlock
+    );
+    print('${lobbyDoor.name} unlocked.');
+
+    // Timed unlock for 5 minutes
+    final suiteDoor = building.floors[6]?.doors.first;
+    if (suiteDoor != null) {
+      await DoorService.unlockDoor(
+        suiteDoor.id,
+        auth.tenantId,
+        auth.accessToken,
+        5, // 5-minute unlock
+      );
+      print('${suiteDoor.name} unlocked for 5 minutes.');
+    }
+  } on ApiException catch (e) {
+    print('Door error [${e.code}]: ${e.message}');
+  }
+}
+```

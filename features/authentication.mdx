@@ -1,0 +1,76 @@
+---
+title: "Authentication"
+description: "Sign in to Openly with your email and password, use biometric login for quick access, and manage your session."
+---
+
+## Logging in
+
+When you open Openly for the first time, the **Door Access Login** screen greets you with an email and password form.
+
+<Steps>
+  <Step title="Enter your credentials">
+    Type your work email address into the **Email** field. Then enter your password in the **Password** field. Tap the eye icon on the right to reveal or hide what you're typing.
+  </Step>
+  <Step title="Tap Login">
+    Tap the **Login** button. While the request is in progress, the button shows a spinner and cannot be tapped again.
+  </Step>
+  <Step title="Access granted">
+    On success, a brief confirmation appears and you are taken directly to the door list. Openly saves your session so you don't have to log in again the next time you open the app.
+  </Step>
+</Steps>
+
+<Note>
+  Sessions automatically expire after a set period. When your session expires, Openly will redirect you back to the login screen and ask you to sign in again.
+</Note>
+
+---
+
+## Biometric login
+
+If your device supports biometric authentication and you have previously logged in, a fingerprint icon appears below the **Login** button. Tap it to authenticate without typing your password.
+
+Biometric login works by verifying your identity on-device and then loading your saved session token. It only appears when both of the following are true:
+
+- Your device has biometric hardware that is set up and ready.
+- A valid, unexpired session is stored on the device.
+
+If your session has expired, the biometric button will not appear and you must log in with your email and password to create a new session.
+
+---
+
+## Session management
+
+Openly stores your session locally after a successful login. Each time you open the app, it checks whether the stored session is still valid. If the session has expired, it is cleared automatically and you are sent back to the login screen.
+
+You do not need to do anything to manage sessions manually — the app handles expiry detection for you.
+
+---
+
+## Logging out
+
+To end your session intentionally:
+
+<Steps>
+  <Step title="Open Settings">
+    Tap the **Settings** tab at the bottom of the screen.
+  </Step>
+  <Step title="Tap Logout">
+    In the **Account** section, tap the **Logout** row.
+  </Step>
+  <Step title="Confirm">
+    A dialog asks "Are you sure you want to logout?" Tap **Logout** to confirm, or **Cancel** to go back.
+  </Step>
+</Steps>
+
+After logging out, all stored session data is removed from the device and you are returned to the login screen.
+
+---
+
+## Error messages
+
+If a login attempt fails, Openly displays one of the following messages:
+
+| Message | What it means |
+|---|---|
+| "The email or password you entered is incorrect." | The credentials you entered do not match any account. Double-check for typos and try again. |
+| "Your account is locked. Please contact support." | Your account has been locked, likely due to too many failed attempts. Reach out to your building administrator or IT support to unlock it. |

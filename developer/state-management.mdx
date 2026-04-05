@@ -1,0 +1,221 @@
+---
+title: "State Management"
+description: "How Openly uses the Provider package to manage authentication, theming, and favorites state across the widget tree."
+---
+
+Openly uses the [`provider`](https://pub.dev/packages/provider) package (version `^6.1.1`) for state management. Each major concern has its own `ChangeNotifier` subclass. All providers are registered at the root of the widget tree using `MultiProvider`, so any widget in the app can read or listen to them.
+
+## Provider setup in main.dart
+
+```dart
+return MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => AuthProvider()),
+    ChangeNotifierProvider(create: (_) => ThemeProvider()),
+    ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+  ],
+  child: Consumer<ThemeProvider>(
+    builder: (context, themeProvider, _) {
+      final textTheme = createTextTheme(context, "Inter", "Inter");
+      final theme = MaterialTheme(textTheme, themeProvider.seedColor);
+
+      return MaterialApp(
+        title: 'Openly',
+        themeMode: themeProvider.themeMode,
+        theme: theme.light(),
+        darkTheme: theme.dark(),
+        home: const SplashWrapper(),
+      );
+    },
+  ),
+);
+```
+
+`ThemeProvider` is consumed immediately by a `Consumer` wrapping `MaterialApp` so that theme changes propagate to the entire widget tree without requiring a hot restart.
+
+## Providers
+
+<AccordionGroup>
+  <Accordion title="AuthProvider">
+
+`AuthProvider` tracks the current user session and exposes authentication actions to the rest of the app.
+
+### Properties
+
+<ParamField path="isAuthenticated" type="bool">
+  Whether a valid session is currently active. `false` by default; set to `true` after a successful `login()`, `biometricLogin()`, or `loadAuthState()` call.
+</ParamField>
+
+<ParamField path="isChecking" type="bool">
+  `true` while the provider is reading stored credentials from `SharedPreferences` during app startup. The `AppEntryPoint` widget shows a loading spinner while this is `true`, preventing a flash of the login screen for already-authenticated users.
+</ParamField>
+
+<ParamField path="accessToken" type="String?">
+  The bearer token returned by the API on login. Passed to `DoorService` for authenticated requests.
+</ParamField>
+
+<ParamField path="tenantId" type="int?">
+  The tenant identifier associated with the current user's organization.
+</ParamField>
+
+<ParamField path="userName" type="String?">
+  The user's login username (typically an email address).
+</ParamField>
+
+<ParamField path="displayName" type="String?">
+  A human-readable display name shown in the UI (e.g., in the settings screen).
+</ParamField>
+
+### Methods
+
+```dart
+Future<void> loadAuthState()
+```
+Called once at startup by `AppEntryPoint`. Reads any stored session from `AuthService`; sets `isChecking` to `false` when done regardless of outcome.
+
+```dart
+Future<void> login(String email, String password)
+```
+Delegates to `AuthService.login()` and stores the returned credentials. Throws `ApiException` on failure (e.g., wrong password, account locked).
+
+```dart
+Future<void> logout()
+```
+Clears all in-memory credentials and tells `AuthService` to delete the stored session. Any widget listening to `isAuthenticated` will receive `false` and redirect to the login screen.
+
+```dart
+Future<void> biometricLogin()
+```
+Re-authenticates by loading the previously stored token without prompting for a password. Throws if no stored credentials exist.
+
+### Splash screen flow
+
+```
+App start
+   │
+   ▼
+SplashWrapper (4.2 s animation)
+   │
+   ▼
+AppEntryPoint.initState()
+   └── authProvider.loadAuthState()   ← isChecking = true
+           │
+           ▼
+        AuthService reads SharedPreferences
+           │
+           ▼
+       notifyListeners()              ← isChecking = false
+           │
+    ┌──────┴──────┐
+    ▼             ▼
+MainScreen    LoginScreen
+(authenticated)  (guest)
+```
+
+  </Accordion>
+
+  <Accordion title="ThemeProvider">
+
+`ThemeProvider` controls the app's visual appearance. It persists both the theme mode and the seed color across sessions using `SharedPreferences`.
+
+### Properties
+
+<ParamField path="themeMode" type="ThemeMode">
+  The current `ThemeMode`. Defaults to `ThemeMode.system` on first launch. Cycles through `system → light → dark → system` each time `toggleTheme()` is called.
+</ParamField>
+
+<ParamField path="seedColor" type="Color">
+  The Material 3 seed color used to generate the app's `ColorScheme`. Defaults to `Color(0xff4b5c92)` (a muted indigo). Changing this color regenerates both the light and dark themes.
+</ParamField>
+
+### Methods
+
+```dart
+Future<void> toggleTheme()
+```
+Cycles the theme mode in order: **System → Light → Dark → System**. Persists the new mode to `SharedPreferences` under the key `theme_mode`.
+
+```dart
+Future<void> updateSeedColor(Color color)
+```
+Replaces the seed color and persists its ARGB integer value to `SharedPreferences` under the key `seed_color`. Both the light and dark `ThemeData` objects are regenerated on the next `Consumer<ThemeProvider>` rebuild.
+
+### Persistence keys
+
+| Key | Type | Default |
+|-----|------|---------|
+| `theme_mode` | `String` (enum name) | `"system"` |
+| `seed_color` | `int` (ARGB) | `0xff4b5c92` |
+
+  </Accordion>
+
+  <Accordion title="FavoritesProvider">
+
+`FavoritesProvider` maintains the set of door IDs the user has starred for quick access. It persists the set to `SharedPreferences` so favorites survive app restarts.
+
+### Properties
+
+<ParamField path="favorites" type="Set&lt;int&gt;">
+  The current set of favorited door IDs. Read this directly when you need to display the full list (e.g., on the Favorites screen).
+</ParamField>
+
+### Methods
+
+```dart
+Future<void> toggleFavorite(int doorId)
+```
+Adds `doorId` to the set if it is not already present; removes it otherwise. Persists the updated set immediately.
+
+```dart
+bool isFavorite(int doorId)
+```
+Returns `true` if `doorId` is in the favorites set. Use this in list items to determine whether to render a filled or outlined star icon.
+
+### Persistence
+
+Favorites are serialized as a JSON string list and stored under the key `favorite_doors`. The set is loaded asynchronously in the constructor via `_loadFavorites()`.
+
+```dart
+// Stored as: ["1", "42", "107"]
+await prefs.setStringList(
+  'favorite_doors',
+  _favorites.map((e) => e.toString()).toList(),
+);
+```
+
+<Tip>
+  Because `_loadFavorites()` is async, the favorites set may be empty for a brief moment after cold start. Widgets that display favorites should handle the empty state gracefully.
+</Tip>
+
+  </Accordion>
+</AccordionGroup>
+
+## Reading providers in widgets
+
+Use `Provider.of<T>(context)` when you need to both read and trigger a rebuild on change, or `Provider.of<T>(context, listen: false)` when you only need to call a method:
+
+```dart
+// Rebuild when auth state changes
+final auth = Provider.of<AuthProvider>(context);
+
+// Call a method without subscribing to rebuilds
+final auth = Provider.of<AuthProvider>(context, listen: false);
+await auth.logout();
+```
+
+You can also use the `Consumer<T>` widget to scope rebuilds to a subtree:
+
+```dart
+Consumer<FavoritesProvider>(
+  builder: (context, favorites, child) {
+    return IconButton(
+      icon: Icon(
+        favorites.isFavorite(door.id)
+          ? Icons.star
+          : Icons.star_border,
+      ),
+      onPressed: () => favorites.toggleFavorite(door.id),
+    );
+  },
+)
+```

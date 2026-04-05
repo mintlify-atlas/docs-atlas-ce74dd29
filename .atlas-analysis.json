@@ -1,0 +1,94 @@
+{
+  "projectType": "saas",
+  "projectName": "Openly",
+  "projectDescription": "A modern Flutter app for secure, token-based door access control with biometric login, favorites, and over-the-air updates.",
+  "theme": "almond",
+  "primaryColor": "#4b5c92",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/door-control",
+              "features/favorites-and-search",
+              "features/settings-and-theming"
+            ]
+          },
+          {
+            "group": "Updates & Maintenance",
+            "pages": [
+              "updates/ota-updates",
+              "updates/changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developer Guide",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "developer/project-structure",
+              "developer/state-management",
+              "developer/data-models"
+            ]
+          },
+          {
+            "group": "Services",
+            "pages": [
+              "developer/auth-service",
+              "developer/door-service",
+              "developer/update-service"
+            ]
+          },
+          {
+            "group": "Building & Releasing",
+            "pages": [
+              "developer/building",
+              "developer/ci-cd"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Token-based authentication with automatic expiry management",
+    "Biometric login (fingerprint) via local_auth",
+    "Secure door unlock with configurable timed access",
+    "Favorites tab for quick access to preferred doors",
+    "Search and filter functionality for door lists",
+    "Animated splash screen with fingerprint scan sequence",
+    "Material 3 theming with light/dark mode and custom color picker",
+    "Over-the-air (OTA) updates via GitHub Releases",
+    "Responsive layout supporting both mobile and wide-screen with NavigationRail"
+  ],
+  "publicApiSurface": [
+    "AuthService.login(email, password) -> AuthData",
+    "AuthService.loadStoredAuth() -> AuthData?",
+    "AuthService.clearAuth()",
+    "DoorService.fetchDoors(tenantId, token) -> Building",
+    "DoorService.unlockDoor(doorId, tenantId, token, minutes)",
+    "UpdateService.checkForUpdates(context, showNoUpdateDialog)",
+    "AuthProvider (ChangeNotifier): login, logout, biometricLogin, loadAuthState",
+    "ThemeProvider (ChangeNotifier): toggleTheme, updateSeedColor",
+    "FavoritesProvider (ChangeNotifier): add/remove/toggle favorites",
+    "Building, Floor, Door data models",
+    "DoorType enum: suite, washroomMen, washroomWomen, staircase, conference, genericFloorDoor, other"
+  ]
+}

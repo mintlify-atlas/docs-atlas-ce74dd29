@@ -1,0 +1,191 @@
+---
+title: "CI/CD"
+description: "How Openly uses GitHub Actions and semantic-release to build, sign, and publish releases automatically."
+---
+
+Openly's CI/CD pipeline is defined in `.github/workflows/build_apk.yml`. It
+runs on every push to `main` (unless only workflow files, `README.md`, or
+`.gitignore` changed) and can also be triggered manually from the GitHub
+Actions UI.
+
+The pipeline has two jobs that run in sequence:
+
+1. **`get-next-version`** — runs `semantic-release --dry-run` to determine
+   whether the commits since the last release warrant a new version. If no
+   releasable changes exist, the second job is skipped entirely.
+2. **`build_and_release`** — builds the signed APK, renames it with the
+   version and build number, then publishes the GitHub Release.
+
+## Triggers
+
+```yaml
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - ".github/workflows/**"
+      - "README.md"
+      - ".gitignore"
+  workflow_dispatch:
+```
+
+Pushes that only touch workflow files, `README.md`, or `.gitignore` are
+ignored to avoid unnecessary builds.
+
+## Release workflow
+
+<Steps>
+  <Step title="Determine the next version">
+    The `get-next-version` job checks out the full git history and runs
+    `semantic-release` in dry-run mode. It analyzes commit messages following
+    the [Conventional Commits](https://www.conventionalcommits.org/) format to
+    decide whether a `patch`, `minor`, or `major` release is needed.
+
+    If no releasable commits are found, the pipeline stops here and no build
+    is produced.
+  </Step>
+
+  <Step title="Set up the build environment">
+    The `build_and_release` job provisions:
+
+    - **Flutter 3.35.1** via [`subosito/flutter-action@v2`](https://github.com/subosito/flutter-action)
+    - **Node.js 20** for running semantic-release plugins
+    - All Flutter and Node dependencies (`flutter pub get` and `npm ci`)
+  </Step>
+
+  <Step title="Decode the release keystore">
+    The Android release keystore is stored as a base64-encoded GitHub Actions
+    secret (`KEYSTORE_BASE64`). CI decodes it to
+    `android/app/openly-key.jks` and exports the remaining signing credentials
+    as environment variables:
+
+    ```bash
+    echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/openly-key.jks
+    ```
+
+    `build.gradle.kts` reads these environment variables when
+    `android/key.properties` is not present (i.e., in CI):
+
+    ```kotlin
+    // android/app/build.gradle.kts
+    mapOf(
+        "keyAlias"       to System.getenv("KEY_ALIAS"),
+        "keyPassword"    to System.getenv("KEY_ALIAS_PASSWORD"),
+        "storeFile"      to System.getenv("KEYSTORE_PATH"),
+        "storePassword"  to System.getenv("KEYSTORE_PASSWORD")
+    )
+    ```
+
+    For local release builds, create `android/key.properties` with the same
+    four keys pointing to your local keystore.
+
+    <Warning>
+      Never commit `android/key.properties` or the `.jks` file. Both are
+      listed in `.gitignore`. Committing them would expose the signing key and
+      allow anyone to publish builds under the same app identity.
+    </Warning>
+  </Step>
+
+  <Step title="Build and sign the APK">
+    Flutter builds the release APK, injecting the semantic version and the
+    GitHub Actions run number as the build number:
+
+    ```bash
+    flutter build apk --release \
+      --build-name ${{ needs.get-next-version.outputs.new-release-version }} \
+      --build-number ${{ github.run_number }}
+    ```
+
+    Output: `build/app/outputs/flutter-apk/app-release.apk`
+  </Step>
+
+  <Step title="Rename the APK">
+    The APK is renamed to embed the version and build number. This naming
+    pattern is required for OTA update detection:
+
+    ```bash
+    mv build/app/outputs/flutter-apk/app-release.apk \
+       build/app/outputs/flutter-apk/openly-v${VERSION}+${BUILD_NUMBER}.apk
+    ```
+
+    Result: `openly-v1.7.0+10.apk`
+
+    <Note>
+      `UpdateService.checkForUpdates()` fetches the GitHub Releases asset list
+      and looks for an APK whose name matches `v{semver}+{buildNumber}.apk`.
+      It compares the build number in the asset name against the build number
+      returned by `package_info_plus` at runtime. The build number must
+      increment with every release for OTA detection to work correctly.
+    </Note>
+  </Step>
+
+  <Step title="Publish the release">
+    `npx semantic-release` runs with the full plugin chain (not dry-run).
+    The plugins execute in this order:
+
+    | Plugin | What it does |
+    |---|---|
+    | `semantic-release-export-data` | Exposes version outputs to other steps |
+    | `semantic-release-pub` | Updates `version` in `pubspec.yaml` with the new semver and `GITHUB_RUN_NUMBER` as the build number |
+    | `@semantic-release/commit-analyzer` | Determines the release type from commits |
+    | `@semantic-release/release-notes-generator` | Generates the changelog body |
+    | `@semantic-release/changelog` | Writes `CHANGELOG.md` |
+    | `@semantic-release/git` | Commits `CHANGELOG.md`, `package.json`, and `pubspec.yaml` back to `main` with a `[skip ci]` message |
+    | `@semantic-release/github` | Creates the GitHub Release and attaches the renamed APK as `Android APK (Release)` |
+
+    The commit message written back to the repository uses the format:
+
+    ```
+    chore(release): 1.7.0 [skip ci]
+    ```
+  </Step>
+</Steps>
+
+## Required secrets
+
+Configure these secrets in your repository's **Settings → Secrets and
+variables → Actions**:
+
+| Secret | Description |
+|---|---|
+| `KEYSTORE_BASE64` | Base64-encoded Android keystore (`.jks`) file |
+| `KEYSTORE_PASSWORD` | Password for the keystore |
+| `KEY_ALIAS` | Alias of the signing key within the keystore |
+| `KEY_ALIAS_PASSWORD` | Password for the key alias |
+| `GITHUB_TOKEN` | Provided automatically by GitHub Actions — no manual setup needed |
+
+## Semantic versioning and commit messages
+
+The pipeline uses [Conventional Commits](https://www.conventionalcommits.org/)
+to determine release type automatically. Use these prefixes in your commit
+messages:
+
+| Prefix | Release type | Example |
+|---|---|---|
+| `fix:` | Patch (`1.7.0` → `1.7.1`) | `fix(auth): handle expired token edge case` |
+| `feat:` | Minor (`1.7.0` → `1.8.0`) | `feat(doors): add favourite sorting` |
+| `BREAKING CHANGE:` | Major (`1.7.0` → `2.0.0`) | `feat!: restructure API response format` |
+
+Commits that do not match these prefixes (e.g., `chore:`, `docs:`, `style:`)
+produce no release.
+
+## OTA update flow
+
+When CI publishes a new GitHub Release, existing app installs are updated
+automatically without going through the Play Store:
+
+1. At next app launch, `UpdateService.checkForUpdates()` calls the GitHub
+   Releases API.
+2. It finds an asset matching `openly-v*.apk` and extracts the build number
+   from the file name.
+3. It compares that build number against the running app's build number
+   (from `package_info_plus`).
+4. If the remote build number is higher, the user sees an update dialog with
+   the changelog rendered in Markdown.
+5. The user confirms, and `ota_update` downloads and installs the APK
+   directly.
+
+<Tip>
+  Users can also trigger a manual update check at any time from the Settings
+  screen. The same `UpdateService.checkForUpdates()` logic runs on demand.
+</Tip>

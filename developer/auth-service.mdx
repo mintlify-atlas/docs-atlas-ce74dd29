@@ -1,0 +1,199 @@
+---
+title: "Auth Service"
+description: "Reference for AuthService and AuthData — handles login, token storage, and session management in Openly."
+---
+
+`AuthService` is a static service class that manages authentication against the Openly API. It handles login, token persistence via `SharedPreferences`, token expiry checks, and session teardown.
+
+All methods are `static` — you never instantiate `AuthService`.
+
+---
+
+## AuthData
+
+`AuthData` is a plain data class returned by `login()` and `loadStoredAuth()`. It carries the credentials and identity information for the current session.
+
+<ResponseField name="accessToken" type="String" required>
+  The OAuth 2.0 bearer token used to authenticate subsequent API requests.
+</ResponseField>
+
+<ResponseField name="tenantId" type="int" required>
+  The numeric tenant identifier extracted from the `tenantRoles` field of the login response.
+</ResponseField>
+
+<ResponseField name="userId" type="String" required>
+  The unique user identifier string returned by the API (`userId` field).
+</ResponseField>
+
+<ResponseField name="userName" type="String" required>
+  The user's email address as returned by the API (`userName` field).
+</ResponseField>
+
+<ResponseField name="displayName" type="String" required>
+  A display-friendly name derived from the email prefix (the part before `@`), with the first letter capitalized. For example, `jane@example.com` becomes `Jane`.
+</ResponseField>
+
+---
+
+## Methods
+
+### `AuthService.login()`
+
+Authenticates a user against the Openly token endpoint and persists the session to `SharedPreferences`.
+
+```dart
+static Future<AuthData> login(String email, String password)
+```
+
+**Parameters**
+
+<ParamField path="email" type="String" required>
+  The user's email address. Sent as the `username` field in the request body.
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  The user's plaintext password. Sent as the `password` field in the request body.
+</ParamField>
+
+**How it works**
+
+The method sends a `POST` request to `https://doors.thespencertower.com/api/token` with the body encoded as `application/x-www-form-urlencoded`:
+
+```
+username=<email>&password=<password>&grant_type=password
+```
+
+On a `200` response, it:
+
+1. Parses `tenantRoles` (a nested JSON string) to extract `tenantId`.
+2. Reads `expires_in` (seconds) and calculates the absolute expiry timestamp.
+3. Derives `displayName` by capitalizing the email prefix.
+4. Persists the token, tenant ID, user ID, username, display name, and expiry as an ISO 8601 string to `SharedPreferences`.
+5. Returns an `AuthData` instance.
+
+**Stored `SharedPreferences` keys**
+
+| Key | Type | Description |
+|---|---|---|
+| `auth_token` | `String` | Bearer access token |
+| `tenant_id` | `int` | Tenant identifier |
+| `user_id` | `String` | User identifier |
+| `user_name` | `String` | User email (username) |
+| `display_name` | `String` | Capitalized display name |
+| `token_expiry` | `String` | ISO 8601 expiry timestamp |
+
+**Throws**
+
+`login()` throws `ApiException` with the following error codes:
+
+<AccordionGroup>
+  <Accordion title="account_locked">
+    The server returned `invalid_grant` and the description contains `"locked"`. The user's account has been locked and requires support intervention.
+  </Accordion>
+  <Accordion title="wrong_password">
+    The server returned `invalid_grant` and the description contains `"incorrect"`. The email or password is wrong.
+  </Accordion>
+  <Accordion title="login_failed">
+    A non-`200` response was received but does not match the above patterns. The `ApiException.message` contains the `error_description` from the response body.
+  </Accordion>
+  <Accordion title="no_tenant">
+    The `tenantRoles` field is missing or empty in the login response.
+  </Accordion>
+  <Accordion title="invalid_response">
+    The `expires_in`, `access_token`, `userId`, or `userName` fields are missing from the response. Also thrown if the response body cannot be decoded as JSON.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+### `AuthService.loadStoredAuth()`
+
+Loads a previously persisted session from `SharedPreferences` and validates that it has not expired.
+
+```dart
+static Future<AuthData?> loadStoredAuth()
+```
+
+Returns an `AuthData` if a valid, non-expired session exists. Returns `null` and clears all stored auth data if:
+
+- No `token_expiry` value is found in `SharedPreferences`.
+- The stored expiry timestamp cannot be parsed.
+- The expiry timestamp is in the past (i.e., the token has expired).
+- Any required field (`auth_token`, `tenant_id`, `user_id`, `user_name`, `display_name`) is missing.
+
+<Note>
+  Token expiry is stored as an ISO 8601 datetime string and compared against `DateTime.now()` on each call. There is no silent refresh — an expired session always results in `null` and requires a fresh `login()` call.
+</Note>
+
+---
+
+### `AuthService.clearAuth()`
+
+Removes all stored authentication data from `SharedPreferences`.
+
+```dart
+static Future<void> clearAuth()
+```
+
+This method removes all six keys: `auth_token`, `tenant_id`, `user_id`, `user_name`, `display_name`, and `token_expiry`. Call this on logout or when you detect an invalid session.
+
+---
+
+## ApiException
+
+`AuthService` throws `ApiException` on errors. It implements `Exception` and exposes two fields:
+
+<ResponseField name="code" type="String" required>
+  A machine-readable error code (e.g., `"account_locked"`, `"wrong_password"`). Use this for conditional error handling in your UI layer.
+</ResponseField>
+
+<ResponseField name="message" type="String" required>
+  A human-readable description of the error, suitable for display to the user.
+</ResponseField>
+
+---
+
+## Usage example
+
+```dart
+import 'package:openly/services/auth_service.dart';
+import 'package:openly/models/api_exception.dart';
+
+Future<void> signIn(String email, String password) async {
+  try {
+    final auth = await AuthService.login(email, password);
+
+    print('Logged in as ${auth.displayName}');
+    print('Tenant: ${auth.tenantId}');
+    print('Token: ${auth.accessToken}');
+  } on ApiException catch (e) {
+    switch (e.code) {
+      case 'account_locked':
+        // Show account locked message
+        break;
+      case 'wrong_password':
+        // Prompt user to re-enter credentials
+        break;
+      default:
+        // Show generic error dialog
+        print(e.message);
+    }
+  }
+}
+
+// On app start, attempt to restore an existing session:
+Future<void> tryRestoreSession() async {
+  final auth = await AuthService.loadStoredAuth();
+
+  if (auth != null) {
+    // Session is valid — proceed to home screen
+  } else {
+    // No valid session — redirect to login screen
+  }
+}
+
+// On logout:
+Future<void> signOut() async {
+  await AuthService.clearAuth();
+}
+```

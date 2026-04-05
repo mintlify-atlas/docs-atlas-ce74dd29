@@ -1,0 +1,78 @@
+---
+title: "Project Structure"
+description: "An overview of how the Openly codebase is organized under lib/, including the role of each directory and how the four architectural layers interact."
+---
+
+The Openly Flutter app follows a layered architecture that keeps API communication, business logic, UI rendering, and data definitions cleanly separated. All application code lives inside `lib/`.
+
+## Directory tree
+
+```
+lib/
+├── main.dart
+├── theme.dart
+├── util.dart
+├── models/
+│   ├── building.dart
+│   └── api_exception.dart
+├── providers/
+│   ├── auth_provider.dart
+│   ├── favorites_provider.dart
+│   └── theme_provider.dart
+├── screens/
+│   ├── splash_screen.dart
+│   ├── login_screen.dart
+│   ├── main_screen.dart
+│   ├── door_list_screen.dart
+│   ├── favorites_screen.dart
+│   └── settings_screen.dart
+├── services/
+│   ├── auth_service.dart
+│   ├── door_service.dart
+│   └── update_service.dart
+└── widgets/
+```
+
+## Root files
+
+| File | Purpose |
+|------|---------|
+| `main.dart` | App entry point. Wires up `MultiProvider`, applies theming, and renders `SplashWrapper` → `AppEntryPoint`. |
+| `theme.dart` | Defines `MaterialTheme`, a thin wrapper that generates `ThemeData` for light and dark modes from a seed color. |
+| `util.dart` | Provides `createTextTheme()`, a helper that composes body and display `TextTheme` objects using Google Fonts. |
+
+## The four architectural layers
+
+<CardGroup cols={2}>
+  <Card title="Models" icon="database">
+    Plain Dart classes that represent domain data — `Building`, `Floor`, `Door`, `DoorType`, and `ApiException`. Models are immutable value objects and contain no Flutter or provider dependencies. `building.dart` also houses all parsing and classification logic (`parseBuildingFromJson`, `classifyDoorType`, etc.).
+  </Card>
+  <Card title="Providers" icon="arrows-spin">
+    `ChangeNotifier` subclasses that hold and expose application state. Each provider encapsulates a single concern — authentication, theming, or favorites — and notifies dependent widgets when state changes. Providers persist data via `SharedPreferences` where needed.
+  </Card>
+  <Card title="Services" icon="server">
+    Stateless classes containing only static methods that communicate with external systems. `AuthService` handles login and credential storage, `DoorService` fetches and unlocks doors, and `UpdateService` checks for OTA updates. Services throw `ApiException` on errors so providers can handle them uniformly.
+  </Card>
+  <Card title="Screens" icon="mobile">
+    Full-page Flutter widgets registered in the navigation stack. Each screen reads from one or more providers using `Provider.of` or `Consumer` and delegates actions back to those providers. Screens contain no networking or storage logic directly.
+  </Card>
+</CardGroup>
+
+## How the layers interact
+
+```
+Screens  ──read/listen──▶  Providers  ──call──▶  Services  ──HTTP──▶  API
+                                │                                        │
+                           notifyListeners()                             │
+                                │                                        │
+                           Models ◀────────────── parse JSON ◀──────────┘
+```
+
+1. A screen (e.g., `LoginScreen`) collects user input and calls a method on a provider (e.g., `AuthProvider.login()`).
+2. The provider delegates the network call to the corresponding service (e.g., `AuthService.login()`).
+3. The service deserializes the API response into model objects and returns them to the provider.
+4. The provider stores the result and calls `notifyListeners()`, causing dependent screens to rebuild.
+
+<Note>
+  The `widgets/` directory is reserved for reusable, composable UI components that are shared across multiple screens. Widgets follow the same rule as screens — they read from providers but never call services directly.
+</Note>

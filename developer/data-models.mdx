@@ -1,0 +1,217 @@
+---
+title: "Data Models"
+description: "The Dart classes and enums that represent doors, floors, and buildings in Openly, plus the parsing and classification helpers that produce them from API responses."
+---
+
+All domain data in Openly is represented by plain Dart classes in `lib/models/`. These classes have no Flutter dependencies and no side effects — they are pure value objects that the rest of the app reads and displays.
+
+## Building
+
+`Building` is the top-level model returned by the API. It organizes all doors into a floor-indexed map and a catch-all list for building-level doors.
+
+```dart
+class Building {
+  final Map<int, Floor> floors;        // key = floor number (e.g., 6, 7, 8)
+  final List<Door> unassignedDoors;    // lobby, cafe, main entrance, parking, …
+}
+```
+
+<ParamField path="floors" type="Map&lt;int, Floor&gt;" required>
+  A map from floor number to `Floor` object. Floors are keyed by integer (e.g., `6` for "6th Fl") so you can look up any floor in O(1).
+</ParamField>
+
+<ParamField path="unassignedDoors" type="List&lt;Door&gt;" required>
+  Doors that could not be assigned to a specific floor — typically building-level access points such as the lobby, café, main entrance, and parking. These are displayed in a dedicated "Main Building" section in the UI.
+</ParamField>
+
+---
+
+## Floor
+
+`Floor` represents a single floor of the building, including its elevators and the doors on that floor.
+
+```dart
+class Floor {
+  final int number;
+  final String displayName;              // e.g., "6th Fl"
+  final Map<String, int> elevatorIdsByName; // {"Elevator A": 2, "Elevator B": 1}
+  final List<Door> doors;
+}
+```
+
+<ParamField path="number" type="int" required>
+  The integer floor number derived from the API's `name` field (e.g., `6` from `"6th Fl"`).
+</ParamField>
+
+<ParamField path="displayName" type="String" required>
+  The human-readable floor label used in the UI, exactly as returned by the API (e.g., `"6th Fl"`).
+</ParamField>
+
+<ParamField path="elevatorIdsByName" type="Map&lt;String, int&gt;">
+  Maps elevator names to their door IDs (e.g., `{"Elevator A": 2}`). Populated during JSON parsing when the floor entry includes `elevatorName` and `elevatorId` fields.
+</ParamField>
+
+<ParamField path="doors" type="List&lt;Door&gt;">
+  All doors inferred to belong to this floor. Populated by `parseBuildingFromJson()` after matching each door's `inferredFloor` against this floor's `number`.
+</ParamField>
+
+---
+
+## Door
+
+`Door` represents a single access-controlled door.
+
+```dart
+class Door {
+  final int id;
+  final String name;
+  final DoorType type;
+  final int? inferredFloor;   // null for building-level doors
+  final String? side;         // "Left" or "Right" if present in the name
+  final List<int> floors;     // compatibility field; usually [inferredFloor]
+}
+```
+
+<ParamField path="id" type="int" required>
+  The unique door ID used when calling the unlock API endpoint.
+</ParamField>
+
+<ParamField path="name" type="String" required>
+  The display name of the door as returned by the API (e.g., `"Suite 604 Left"`, `"6th Fl Men's Washroom"`).
+</ParamField>
+
+<ParamField path="type" type="DoorType" required>
+  The classified door type. See the `DoorType` enum below.
+</ParamField>
+
+<ParamField path="inferredFloor" type="int?">
+  The floor number parsed from the door's name. `null` for building-level doors (lobby, café, etc.).
+</ParamField>
+
+<ParamField path="side" type="String?">
+  `"Left"` or `"Right"` if the door name contains a side indicator. Used to differentiate doors in the same suite or washroom cluster.
+</ParamField>
+
+<ParamField path="floors" type="List&lt;int&gt;">
+  Maintained for API compatibility. Contains `[inferredFloor]` when a floor is known, or `[-1]` for building-level doors.
+</ParamField>
+
+---
+
+## DoorType enum
+
+`DoorType` is used by the UI to render the correct icon and group doors into logical sections.
+
+```dart
+enum DoorType {
+  suite,
+  washroomMen,
+  washroomWomen,
+  staircase,
+  conference,
+  genericFloorDoor,
+  other,
+}
+```
+
+| Value | Description |
+|-------|-------------|
+| `suite` | Office suites identified by a room number (e.g., "Suite 604"). |
+| `washroomMen` | Men's washroom doors. Matched by variations of "Men", "Men's", "Mens". |
+| `washroomWomen` | Women's washroom doors. Matched by variations of "Women", "Women's". |
+| `staircase` | Staircase access doors. |
+| `conference` | Conference room doors. |
+| `genericFloorDoor` | Floor-level doors that don't match any specific category above (fallback for known floors). |
+| `other` | Building-level doors — lobby, café, entrance, parking, etc. These end up in `Building.unassignedDoors`. |
+
+---
+
+## ApiException
+
+`ApiException` is thrown by service methods when an API call fails. Providers catch it and surface the `message` to the user.
+
+```dart
+class ApiException implements Exception {
+  final String code;
+  final String message;
+}
+```
+
+<ParamField path="code" type="String" required>
+  A machine-readable error code. Use this in tests and error-handling logic rather than comparing against the human-readable `message`.
+</ParamField>
+
+<ParamField path="message" type="String" required>
+  A human-readable description of the error, suitable for display in a snackbar or dialog.
+</ParamField>
+
+### Known error codes
+
+| Code | Thrown by | Meaning |
+|------|-----------|---------|
+| `account_locked` | `AuthService` | The user's account has been locked after too many failed attempts. |
+| `wrong_password` | `AuthService` | The provided password is incorrect. |
+| `login_failed` | `AuthService` | A generic login failure not covered by a more specific code. |
+| `no_tenant` | `AuthService` | No tenant is associated with the account. |
+| `invalid_response` | `AuthService`, `DoorService` | The API returned a response that could not be parsed. |
+| `fetch_doors_failed` | `DoorService` | The door list could not be retrieved. |
+| `unlock_failed` | `DoorService` | The unlock command was sent but the API reported a failure. |
+
+---
+
+## Parsing and classification helpers
+
+All helpers live in `lib/models/building.dart` alongside the model classes.
+
+### `parseBuildingFromJson()`
+
+```dart
+Building parseBuildingFromJson(Map<String, dynamic> json)
+```
+
+The top-level parser. Accepts the raw API response map and returns a fully populated `Building`. It:
+
+1. Iterates the `floors` array, deduplicates by floor number, and builds the `Map<int, Floor>`.
+2. Registers elevator entries on each `Floor`.
+3. Iterates the `doors` array, calls `inferFloorNumberFromDoorName()` and `classifyDoorType()` for each door, and routes it to the matching `Floor` or to `unassignedDoors`.
+
+### `inferFloorNumberFromDoorName()`
+
+```dart
+int? inferFloorNumberFromDoorName(String name)
+```
+
+Returns the floor number embedded in a door name, or `null` if no reliable inference is possible. The function applies three strategies in priority order:
+
+1. **Explicit floor tag** — matches `"6th Fl"`, `"7th Fl"`, etc.
+2. **Suite number** — derives the floor from the first digit(s) of the room number (`604 → 6`, `1004 → 10`).
+3. **Generic room token** — falls back to a 3–4 digit token when the name also contains a word like "Room" or "Office".
+
+### `classifyDoorType()`
+
+```dart
+DoorType classifyDoorType(String name)
+```
+
+Returns the `DoorType` for a door given its name. Classification priority:
+
+1. Staircase keyword → `DoorType.staircase`
+2. Conference keyword → `DoorType.conference`
+3. Men's room keywords → `DoorType.washroomMen`
+4. Women's room keywords → `DoorType.washroomWomen`
+5. Suite pattern → `DoorType.suite`
+6. Building-level keywords (lobby, café, parking, …) with no inferable floor → `DoorType.other`
+7. Floor inferable → `DoorType.genericFloorDoor`
+8. No floor inferable → `DoorType.other`
+
+### `extractSide()`
+
+```dart
+String? extractSide(String name)
+```
+
+Returns `"Left"` or `"Right"` (title-cased) if the door name contains a side indicator, otherwise `null`. Used to distinguish paired doors in suites and washrooms.
+
+<Note>
+  All pattern matching uses pre-compiled `RegExp` objects defined in the private `_R` class inside `building.dart`. This avoids recompiling patterns on every door parse.
+</Note>

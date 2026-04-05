@@ -1,0 +1,114 @@
+---
+title: "Installation"
+description: "Set up your Flutter development environment and build Openly from source."
+---
+
+<Note>
+  Openly is not published to pub.dev (`publish_to: "none"` in `pubspec.yaml`). It is distributed as an APK through [GitHub Releases](https://github.com/nathan101000/openly/releases).
+</Note>
+
+## Prerequisites
+
+- **Flutter SDK** with Dart `>=3.0.0 <4.0.0`
+- **Android SDK** (API level 21 or higher recommended)
+- A connected Android device or emulator
+
+## Install from source
+
+<Steps>
+  <Step title="Install Flutter">
+    Follow the [Flutter installation guide](https://docs.flutter.dev/get-started/install) for your operating system. Verify your setup:
+
+    ```bash
+    flutter doctor
+    ```
+
+    Resolve any issues Flutter Doctor reports before continuing.
+  </Step>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/nathan101000/openly.git
+    cd openly
+    ```
+  </Step>
+  <Step title="Install dependencies">
+    ```bash
+    flutter pub get
+    ```
+
+    This fetches all packages listed in `pubspec.yaml`.
+  </Step>
+  <Step title="Run the app">
+    Connect your Android device or start an emulator, then run:
+
+    ```bash
+    flutter run
+    ```
+
+    Flutter selects the connected device automatically. Use `flutter run -d <device-id>` to target a specific device.
+  </Step>
+</Steps>
+
+## Build a release APK
+
+To produce a release-signed APK for distribution:
+
+```bash
+flutter build apk
+```
+
+The output file is at `build/app/outputs/flutter-apk/app-release.apk`.
+
+<Note>
+  Release builds require a signing keystore. See the [Flutter Android deployment guide](https://docs.flutter.dev/deployment/android) for instructions on creating and configuring a keystore.
+</Note>
+
+## Android-specific setup
+
+### Biometric authentication
+
+Openly uses `local_auth` for fingerprint login. You must declare the biometric permission in your Android manifest.
+
+<Warning>
+  Without the `USE_BIOMETRIC` permission in `android/app/src/main/AndroidManifest.xml`, biometric login will silently fail at runtime. Add the following line inside the `<manifest>` tag:
+
+  ```xml
+  <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+  ```
+</Warning>
+
+The `local_auth` plugin may also require `USE_FINGERPRINT` on devices running Android 9 (API 28) or lower:
+
+```xml
+<uses-permission android:name="android.permission.USE_FINGERPRINT" />
+```
+
+### Fragment activity
+
+`local_auth` requires your `MainActivity` to extend `FlutterFragmentActivity` instead of `FlutterActivity`. In `android/app/src/main/kotlin/.../MainActivity.kt`:
+
+```kotlin
+import io.flutter.embedding.android.FlutterFragmentActivity
+
+class MainActivity: FlutterFragmentActivity()
+```
+
+## Dependencies
+
+The following packages are declared in `pubspec.yaml`:
+
+| Package | Version | Purpose |
+|---|---|---|
+| `google_fonts` | `^6.2.1` | Inter typeface used throughout the app |
+| `http` | `^1.1.0` | HTTP client for door and auth API calls |
+| `provider` | `^6.1.1` | State management for auth, theme, and favorites |
+| `shared_preferences` | `^2.2.0` | Persistent storage for session tokens and settings |
+| `local_auth` | `^2.1.7` | Biometric (fingerprint) authentication |
+| `flutter_lints` | `^5.0.0` | Lint rules for code quality |
+| `ota_update` | `^7.0.2` | Over-the-air APK download and installation |
+| `package_info_plus` | `^8.3.0` | Runtime access to app version and build number |
+| `permission_handler` | `^12.0.1` | Runtime permission requests (storage, biometrics) |
+| `expressive_loading_indicator` | `^0.0.1` | Animated loading indicator on door list refresh |
+| `flex_color_picker` | `^3.7.1` | In-app color picker for theme customization |
+| `pull_to_refresh` | `^2.0.0` | Pull-to-refresh gesture on the door list |
+| `flutter_markdown` | `^0.7.3` | Renders changelog Markdown in the update dialog |
